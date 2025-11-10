@@ -7,60 +7,92 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
-## About Laravel
+## Blog Management API (Laravel + Sanctum)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### Requirements
+- PHP 8.2+
+- Composer
+- MySQL
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Setup
+1. Copy `.env.example` to `.env` and set your MySQL credentials:
+   - `DB_CONNECTION=mysql`
+   - `DB_HOST=...`
+   - `DB_PORT=3306`
+   - `DB_DATABASE=...`
+   - `DB_USERNAME=...`
+   - `DB_PASSWORD=...`
+2. Install dependencies:
+   - `composer install`
+3. Generate app key:
+   - `php artisan key:generate`
+4. Run migrations and seeders:
+   - `php artisan migrate --seed`
+5. Link storage for images:
+   - `php artisan storage:link`
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Seed creates:
+- Admin: `admin@example.com` / `password`
+- Demo: `demo@example.com` / `password`
+- Sample blogs with likes and images in `storage/app/public/blogs`
 
-## Learning Laravel
+### Authentication (Sanctum)
+- Login to obtain token:
+  - `POST /api/auth/login`
+  - Body: `{ "email": "admin@example.com", "password": "password" }`
+  - Response: `{ token, token_type: "Bearer", user }`
+- Logout:
+  - `POST /api/auth/logout` (Authorization header required)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Use header on protected routes:
+`Authorization: Bearer <token>`
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Blog APIs
+- List blogs (pagination, search, sorting):
+  - `GET /api/blogs`
+  - Query:
+    - `page` (default 1)
+    - `per_page` (default 10, max 100)
+    - `search` (searches `title` and `description`)
+    - `sort=latest|most_liked` (default `latest`)
+  - Each item includes: `likes_count`, `is_liked` for the logged-in user, and `author`.
+- Create blog:
+  - `POST /api/blogs`
+  - Multipart form-data:
+    - `title` (string, required, max 255)
+    - `description` (string, required)
+    - `image` (file image: jpg/jpeg/png/gif/webp, max 5MB)
+- Edit blog:
+  - `PUT /api/blogs/{blog}` or `PATCH /api/blogs/{blog}`
+  - Multipart form-data (any of):
+    - `title` (string, max 255)
+    - `description` (string)
+    - `image` (file image: jpg/jpeg/png/gif/webp, max 5MB)
+  - Note: only the author can update/delete their blog.
+- Delete blog:
+  - `DELETE /api/blogs/{blog}`
+  - Note: only the author can delete their blog.
+- Like toggle:
+  - `POST /api/blogs/{blog}/like-toggle`
+  - Toggles like by current user; response includes `is_liked` and `likes_count`.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Tech Notes
+- Auth: Laravel Sanctum personal access tokens
+- Models:
+  - `Blog` has `user`, `likes` (polymorphic), soft deletes, image path
+  - `Like` is polymorphic (`likeable`) and references `user`
+  - `User` uses `HasApiTokens` and relations for blogs and likes
+- Migrations:
+  - `blogs` table with fulltext on `title, description`
+  - `likes` table with unique `(user_id, likeable_id, likeable_type)`
+- Filesystem:
+  - Public disk used; URLs via `Storage::disk('public')->url(...)`
 
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Quick Route Reference
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/blogs`
+- `POST /api/blogs`
+- `PUT|PATCH /api/blogs/{blog}`
+- `DELETE /api/blogs/{blog}`
+- `POST /api/blogs/{blog}/like-toggle`
