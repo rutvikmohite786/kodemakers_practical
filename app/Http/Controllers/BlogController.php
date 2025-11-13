@@ -31,8 +31,18 @@ class BlogController extends Controller
                     ->whereColumn('likeable_id', 'blogs.id')
                     ->where('likeable_type', Blog::class)
                     ->where('user_id', $user->id)
-                    ->limit(1),
+                    ->exists(1),
             ]);
+
+        /*   $query = Blog::with(['user:id,name,email'])
+            ->withCount('likes')
+            ->withExists(['likes as is_liked' => function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            }]);
+            
+            -> automatically adds a boolean column is_liked
+            
+            */
 
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($query) use ($search) {
